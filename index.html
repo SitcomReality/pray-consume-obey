@@ -2,7 +2,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PRAY. CONSUME. OBEY.</title>
+  <title>PARTY POPPER: THE UNINVITED</title>
   <link rel="stylesheet" href="styles.css">
   <script type="importmap">
     {
@@ -20,15 +20,15 @@
   
   <div id="game-container">
     <div id="header">
-      <h1>PRAY. CONSUME. OBEY.</h1>
-      <h2>(SALVATION SOLD SEPARATELY)</h2>
+      <h1>PARTY POPPER: THE UNINVITED</h1>
+      <h2>(BECAUSE YOU'RE MEAN)</h2>
     </div>
     
     <div id="main-content">
       <div id="game-area">
         <canvas id="game-canvas"></canvas>
         <div id="target-indicator" class="hidden">TARGET LOCKED</div>
-        <div id="hack-success" class="hidden">DRONE HACKED!</div>
+        <div id="hack-success" class="hidden">BALLOON POPPED!</div>
         <div id="faith-meter">
           <div id="faith-fill"></div>
         </div>
@@ -37,24 +37,24 @@
       <div id="sidebar">
         <div id="mission-panel">
           <h3>MISSION LOG</h3>
-          <p>You are a heretic in SALVATION™ MegaChurch Theme Park.</p>
-          <p>Use your divine jetpack and bolts of piety to destroy the hymn-singing drones.</p>
-          <p>Avoid detection by the AI priests.</p>
+          <p>You weren't invited to the birthday party!</p>
+          <p>Use your super jump and pins to pop all the balloons.</p>
+          <p>Don't get caught by the party kids!</p>
         </div>
         
         <div id="stats-panel">
           <div class="stat">
-            <span>Drones Destroyed:</span>
+            <span>Balloons Popped:</span>
             <span id="drones-hacked">0</span>
           </div>
           <div class="stat">
-            <span>Detection Level:</span>
+            <span>Getting Caught:</span>
             <div id="detection-meter">
               <div id="detection-fill"></div>
             </div>
           </div>
           <div class="stat">
-            <span>Scriptures Broadcast:</span>
+            <span>Mean Comments:</span>
             <span id="scriptures-count">0</span>
           </div>
         </div>
@@ -63,8 +63,8 @@
           <h3>CONTROLS</h3>
           <p>WASD - Move</p>
           <p>MOUSE - Look</p>
-          <p>CLICK - Fire Bolt of Piety</p>
-          <p>SPACE - Activate Jetpack</p>
+          <p>CLICK - Throw Pin</p>
+          <p>SPACE - Super Jump</p>
           <p>ESC - Toggle Menu</p>
         </div>
       </div>
@@ -72,50 +72,52 @@
     
     <div id="footer">
       <div id="message-ticker">
-        <div id="ticker-content">BREAKING NEWS: SALVATION™ NFTs HIT RECORD HIGH - TITHING REACHES 95% OF AVERAGE INCOME - NEW NEURAL IMPLANT UPDATE INCREASES RAPTURE SENSATION BY 250%</div>
+        <div id="ticker-content">BREAKING NEWS: LOCAL BULLY SPOTTED NEAR BIRTHDAY PARTY - PARENTS ON HIGH ALERT - CAKE AND PRESENTS AT RISK - ENSURE ALL BALLOONS ARE SECURED</div>
       </div>
     </div>
   </div>
   
   <div id="menu" class="hidden">
     <div class="menu-content">
-      <h2>FAITH OS v6.66</h2>
-      <button id="start-game">START MISSION</button>
-      <button id="shop-button">GIFT SHOP</button>
+      <h2>PARTY POPPER</h2>
+      <button id="start-game">START POPPING</button>
+      <button id="shop-button">PARTY SUPPLIES</button>
       <button id="about-button">ABOUT</button>
     </div>
   </div>
   
   <div id="shop-modal" class="modal hidden">
     <div class="modal-content">
-      <h2>SALVATION™ GIFT SHOP</h2>
+      <h2>PARTY SUPPLIES</h2>
       <div class="shop-items">
         <div class="shop-item">
-          <div class="crucifix-usb">
-            <div class="usb-cross"></div>
-            <div class="usb-connector"></div>
+          <div class="balloon">
+            <div class="balloon-body"></div>
+            <div class="balloon-string"></div>
           </div>
-          <h3>CRUCIFIX USB</h3>
-          <p>Pre-loaded with SALVATION™ malware</p>
-          <p class="price">199.99 FAITH TOKENS</p>
+          <h3>SUPER PIN</h3>
+          <p>Makes balloons pop extra loud!</p>
+          <p class="price">199 MEANIE POINTS</p>
         </div>
         <div class="shop-item">
-          <div class="neural-implant">
-            <div class="implant-body"></div>
-            <div class="implant-connector"></div>
+          <div class="party-hat">
+            <div class="hat-body"></div>
+            <div class="hat-pom"></div>
           </div>
-          <h3>RAPTURE IMPLANT+</h3>
-          <p>Premium dopamine drip for major tithers</p>
-          <p class="price">999.99 FAITH TOKENS</p>
+          <h3>PARTY DISGUISE</h3>
+          <p>Blend in with the party kids</p>
+          <p class="price">999 MEANIE POINTS</p>
         </div>
         <div class="shop-item">
-          <div class="nft-token">
-            <div class="token-glow"></div>
-            <div class="token-symbol">NFT</div>
+          <div class="cake">
+            <div class="cake-base"></div>
+            <div class="cake-top"></div>
+            <div class="candle"></div>
+            <div class="flame"></div>
           </div>
-          <h3>SALVATION™ NFT</h3>
-          <p>Blockchain guarantee of eternal life</p>
-          <p class="price">5999.99 FAITH TOKENS</p>
+          <h3>FAKE CAKE</h3>
+          <p>It's actually filled with mud!</p>
+          <p class="price">5999 MEANIE POINTS</p>
         </div>
       </div>
       <button id="close-shop">CLOSE</button>
@@ -124,23 +126,23 @@
   
   <div id="about-modal" class="modal hidden">
     <div class="modal-content">
-      <h2>ABOUT THE HERESY</h2>
-      <p>In a world where faith has been commodified, a lone heretic fights to restore the original message.</p>
-      <p>The MegaChurch conglomerate has replaced spirituality with consumption, confession with data mining, and salvation with blockchain tokens.</p>
-      <p>Your mission: hack the system from within by reprogramming hymn-singing drones to broadcast forbidden scriptures like "Blessed are the poor" and "It is easier for a camel to go through the eye of a needle than for a rich man to enter the kingdom of God."</p>
+      <h2>ABOUT THE MEANNESS</h2>
+      <p>You weren't invited to the biggest birthday party of the year, and you're feeling pretty upset about it!</p>
+      <p>Of course, there might be a reason why nobody invited you. Maybe it's because you're always mean to everyone?</p>
+      <p>But who cares! Your mission: pop all the balloons at the party and ruin everyone's fun, because if you can't have fun, nobody should!</p>
       <button id="close-about">CLOSE</button>
     </div>
   </div>
   
   <div id="game-over" class="modal hidden">
     <div class="modal-content">
-      <h2 id="game-over-title">MISSION FAILED</h2>
-      <p id="game-over-message">You have been detected by the AI priests and excommunicated from SALVATION™.</p>
+      <h2 id="game-over-title">PARTY RUINED!</h2>
+      <p id="game-over-message">You successfully popped all the balloons and ruined the party!</p>
       <div id="game-stats">
-        <p>Drones Hacked: <span id="final-drones"></span></p>
-        <p>Scriptures Broadcast: <span id="final-scriptures"></span></p>
+        <p>Balloons Popped: <span id="final-drones"></span></p>
+        <p>Mean Comments Made: <span id="final-scriptures"></span></p>
       </div>
-      <button id="restart-game">TRY AGAIN</button>
+      <button id="restart-game">BE MEAN AGAIN</button>
     </div>
   </div>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

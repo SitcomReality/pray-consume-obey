@@ -4,28 +4,28 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 // Game state
 const gameState = {
   isPlaying: false,
-  dronesDestroyed: 0,
-  scripturesBroadcast: 0,
+  balloonsPopped: 0,
+  meanCommentsMade: 0,
   detectionLevel: 0,
   playerPosition: new THREE.Vector3(0, 1.6, 0),
-  targetedDrone: null,
-  drones: [],
-  priests: [],
-  faith: 100,
-  maxFaith: 100,
-  faithRecharging: true,
-  faithRechargeTimer: 0,
+  targetedBalloon: null,
+  balloons: [],
+  partyKids: [],
+  happiness: 100,
+  maxHappiness: 200,
+  happinessRecharging: true,
+  happinessRechargeTimer: 0,
   isJetpackActive: false,
   projectiles: [],
   isPaused: false,
-  scriptures: [
-    "Blessed are the poor, for theirs is the kingdom of heaven.",
-    "It is easier for a camel to go through the eye of a needle than for a rich man to enter the kingdom of God.",
-    "You cannot serve both God and money.",
-    "Love your neighbor as yourself.",
-    "Sell your possessions and give to the poor.",
-    "When you pray, do not be like the hypocrites who love to pray in public to be seen by others.",
-    "Judge not, lest ye be judged."
+  meanComments: [
+    "You weren't invited because you're always mean!",
+    "This is why nobody likes playing with you!",
+    "Maybe if you were nicer, you'd have friends too!",
+    "You always ruin everyone's fun!",
+    "No cake for bullies!",
+    "Stop being such a party pooper!",
+    "Why can't you just be happy for others?"
   ]
 };
 
@@ -36,16 +36,16 @@ const sounds = {
     volume: 0.3,
     loop: true
   }),
-  droneHum: new Howl({
+  balloonFloat: new Howl({
     src: ['data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gQ29ueWFjIFNvdW5kYmFua////0A='],
     volume: 0.2,
     loop: true
   }),
-  boltShot: new Howl({
+  pinShot: new Howl({
     src: ['data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gQ29ueWFjIFNvdW5kYmFua////0A='],
     volume: 0.5
   }),
-  explosion: new Howl({
+  balloonPop: new Howl({
     src: ['data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gQ29ueWFjIFNvdW5kYmFua////0A='],
     volume: 0.7
   }),
@@ -71,17 +71,17 @@ const elements = {
   closeShop: document.getElementById('close-shop'),
   aboutModal: document.getElementById('about-modal'),
   closeAbout: document.getElementById('close-about'),
-  dronesHacked: document.getElementById('drones-hacked'),
-  scripturesCount: document.getElementById('scriptures-count'),
+  balloonsPopped: document.getElementById('drones-hacked'),
+  meanCommentsMade: document.getElementById('scriptures-count'),
   detectionFill: document.getElementById('detection-fill'),
-  faithFill: document.getElementById('faith-fill'),
+  happinessFill: document.getElementById('faith-fill'),
   targetIndicator: document.getElementById('target-indicator'),
   hackSuccess: document.getElementById('hack-success'),
   gameOver: document.getElementById('game-over'),
   gameOverTitle: document.getElementById('game-over-title'),
   gameOverMessage: document.getElementById('game-over-message'),
-  finalDrones: document.getElementById('final-drones'),
-  finalScriptures: document.getElementById('final-scriptures'),
+  finalBalloons: document.getElementById('final-drones'),
+  finalComments: document.getElementById('final-scriptures'),
   restartButton: document.getElementById('restart-game')
 };
 
@@ -98,7 +98,7 @@ let crosshair;
 function initThree() {
   // Scene
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x000000, 0.05);
+  scene.fog = new THREE.FogExp2(0x88ccff, 0.01);
   
   // Camera
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -113,43 +113,44 @@ function initThree() {
   controls = new PointerLockControls(camera, document.body);
   
   // Lighting
-  const ambientLight = new THREE.AmbientLight(0x333333);
+  const ambientLight = new THREE.AmbientLight(0x88ccff, 2);
   scene.add(ambientLight);
   
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
   directionalLight.position.set(0, 10, 0);
   scene.add(directionalLight);
   
-  // Add colored point lights for neon effect
-  addPointLight(0xff00ff, 0, 5, -10, 8);
-  addPointLight(0x00ffff, 10, 3, 0, 5);
-  addPointLight(0xffcc00, -10, 4, 5, 6);
+  // Add colored point lights for fun effect
+  addPointLight(0xff6b6b, 0, 5, -10, 8);
+  addPointLight(0x4ecdc4, 10, 3, 0, 5);
+  addPointLight(0xffbe0b, -10, 4, 5, 6);
   
-  // Floor
+  // Floor - playground ground
   const floorGeometry = new THREE.PlaneGeometry(100, 100, 10, 10);
   const floorMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x111111,
+    color: 0x88cc66,
     wireframe: false,
-    metalness: 0.8,
-    roughness: 0.2
+    metalness: 0.1,
+    roughness: 0.8
   });
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
   
-  // Grid lines for floor
-  const gridHelper = new THREE.GridHelper(100, 100, 0xff00ff, 0x444444);
+  // Playground tiles pattern
+  const gridHelper = new THREE.GridHelper(100, 20, 0xffffff, 0x88cc66);
+  gridHelper.position.y = 0.01;
   scene.add(gridHelper);
   
-  // Create the mega-church environment
+  // Create the playground environment
   createEnvironment();
   
-  // Create drones
-  createDrones(15);
+  // Create balloons
+  createBalloons(15);
   
-  // Create AI priests
-  createPriests(5);
+  // Create party kids
+  createPartyKids(5);
   
   // Handle resize
   window.addEventListener('resize', () => {
@@ -173,243 +174,251 @@ function addPointLight(color, x, y, z, intensity = 1, distance = 15) {
 }
 
 function createEnvironment() {
-  // Central mega-church building
-  const churchGeometry = new THREE.BoxGeometry(30, 20, 30);
-  const churchMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x222222,
-    metalness: 0.7,
-    roughness: 0.2
+  // Central playground structure
+  const playgroundGeometry = new THREE.BoxGeometry(20, 10, 20);
+  const playgroundMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x4ecdc4,
+    metalness: 0.1,
+    roughness: 0.7
   });
-  const church = new THREE.Mesh(churchGeometry, churchMaterial);
-  church.position.set(0, 10, -30);
-  scene.add(church);
+  const playground = new THREE.Mesh(playgroundGeometry, playgroundMaterial);
+  playground.position.set(0, 5, -20);
+  scene.add(playground);
   
-  // Cross on top
-  const crossVertical = new THREE.BoxGeometry(2, 15, 2);
-  const crossHorizontal = new THREE.BoxGeometry(10, 2, 2);
-  const crossMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0xff00ff,
-    emissive: 0xff00ff,
-    emissiveIntensity: 0.5
+  // Slide
+  const slideGeometry = new THREE.BoxGeometry(5, 2, 15);
+  const slideMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xff6b6b,
+    metalness: 0.2,
+    roughness: 0.5
   });
   
-  const crossVert = new THREE.Mesh(crossVertical, crossMaterial);
-  crossVert.position.set(0, 27.5, -30);
-  scene.add(crossVert);
+  const slide = new THREE.Mesh(slideGeometry, slideMaterial);
+  slide.position.set(10, 1, -20);
+  slide.rotation.z = -Math.PI / 8;
+  scene.add(slide);
   
-  const crossHorz = new THREE.Mesh(crossHorizontal, crossMaterial);
-  crossHorz.position.set(0, 24, -30);
-  scene.add(crossHorz);
+  // Balloons banner
+  const bannerGeometry = new THREE.BoxGeometry(30, 3, 1);
+  const bannerMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xffbe0b,
+    metalness: 0.2,
+    roughness: 0.6
+  });
   
-  // Add some blockchain NFT displays
+  const banner = new THREE.Mesh(bannerGeometry, bannerMaterial);
+  banner.position.set(0, 12, -30);
+  scene.add(banner);
+  
+  // Add some party decorations
   for (let i = -20; i <= 20; i += 10) {
     if (i === 0) continue; // Skip center
     
-    const displayGeometry = new THREE.BoxGeometry(5, 5, 1);
-    const displayMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xffcc00,
-      emissive: 0xffcc00,
-      emissiveIntensity: 0.3
+    const decorGeometry = new THREE.SphereGeometry(2, 16, 16);
+    const decorMaterial = new THREE.MeshStandardMaterial({ 
+      color: i % 20 === 0 ? 0xff6b6b : 0xffbe0b,
+      metalness: 0.2,
+      roughness: 0.6
     });
     
-    const display = new THREE.Mesh(displayGeometry, displayMaterial);
-    display.position.set(i, 5, -15);
-    scene.add(display);
-    
-    // NFT frame
-    const frameGeometry = new THREE.BoxGeometry(6, 6, 0.5);
-    const frameMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x333333,
-      metalness: 0.8,
-      roughness: 0.2
-    });
-    
-    const frame = new THREE.Mesh(frameGeometry, frameMaterial);
-    frame.position.set(i, 5, -14.5);
-    scene.add(frame);
+    const decor = new THREE.Mesh(decorGeometry, decorMaterial);
+    decor.position.set(i, 5, -15);
+    scene.add(decor);
   }
   
-  // Add pillars
+  // Add swings
   for (let x = -25; x <= 25; x += 50) {
-    for (let z = -25; z <= 25; z += 10) {
-      if (z < -20) continue; // Don't place pillars inside church
-      
-      const pillarGeometry = new THREE.CylinderGeometry(1, 1, 8, 8);
-      const pillarMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xffffff,
-        metalness: 0.5,
-        roughness: 0.2
-      });
-      
-      const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-      pillar.position.set(x, 4, z);
-      scene.add(pillar);
-    }
+    const swingPostGeometry = new THREE.CylinderGeometry(0.5, 0.5, 8, 8);
+    const swingPostMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x8855ff,
+      metalness: 0.2,
+      roughness: 0.7
+    });
+    
+    const swingPost1 = new THREE.Mesh(swingPostGeometry, swingPostMaterial);
+    swingPost1.position.set(x - 3, 4, 15);
+    scene.add(swingPost1);
+    
+    const swingPost2 = new THREE.Mesh(swingPostGeometry, swingPostMaterial);
+    swingPost2.position.set(x + 3, 4, 15);
+    scene.add(swingPost2);
+    
+    const swingBarGeometry = new THREE.CylinderGeometry(0.3, 0.3, 7, 8);
+    swingBarGeometry.rotateX(Math.PI / 2);
+    const swingBar = new THREE.Mesh(swingBarGeometry, swingPostMaterial);
+    swingBar.position.set(x, 8, 15);
+    scene.add(swingBar);
   }
   
-  // Gift shop building
-  const shopGeometry = new THREE.BoxGeometry(15, 10, 15);
-  const shopMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x222255,
-    metalness: 0.6,
-    roughness: 0.3
+  // Tables with cake and presents
+  const tableGeometry = new THREE.CylinderGeometry(3, 3, 1, 8);
+  const tableMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xffffff,
+    metalness: 0.1,
+    roughness: 0.6
   });
   
-  const shop = new THREE.Mesh(shopGeometry, shopMaterial);
-  shop.position.set(25, 5, 20);
-  scene.add(shop);
+  const table = new THREE.Mesh(tableGeometry, tableMaterial);
+  table.position.set(-15, 0.5, 20);
+  scene.add(table);
   
-  // Shop sign
-  const signGeometry = new THREE.PlaneGeometry(10, 2);
-  const signMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x00ffff,
-    emissive: 0x00ffff,
-    emissiveIntensity: 0.7,
-    side: THREE.DoubleSide
+  // Cake
+  const cakeBaseGeometry = new THREE.CylinderGeometry(2, 2, 1, 16);
+  const cakeBaseMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xffbe0b,
+    metalness: 0.2,
+    roughness: 0.6
   });
   
-  const sign = new THREE.Mesh(signGeometry, signMaterial);
-  sign.position.set(25, 12, 20);
-  sign.rotation.y = Math.PI / 2;
-  scene.add(sign);
+  const cakeBase = new THREE.Mesh(cakeBaseGeometry, cakeBaseMaterial);
+  cakeBase.position.set(-15, 1.5, 20);
+  scene.add(cakeBase);
+  
+  const cakeTopGeometry = new THREE.CylinderGeometry(1.5, 1.5, 1, 16);
+  const cakeTopMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xff6b6b,
+    metalness: 0.2,
+    roughness: 0.6
+  });
+  
+  const cakeTop = new THREE.Mesh(cakeTopGeometry, cakeTopMaterial);
+  cakeTop.position.set(-15, 2.5, 20);
+  scene.add(cakeTop);
 }
 
-function createDrones(count) {
+function createBalloons(count) {
   for (let i = 0; i < count; i++) {
-    // Drone body
-    const bodyGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    // Balloon body
+    const bodyGeometry = new THREE.SphereGeometry(0.8, 16, 16);
     
-    // Brighter colors for drones
-    const droneColors = [0xff00ff, 0x00ffff, 0xffcc00, 0xff3333, 0x33ff33];
-    const droneColor = droneColors[Math.floor(Math.random() * droneColors.length)];
+    // Bright colorful balloons
+    const balloonColors = [0xff6b6b, 0x4ecdc4, 0xffbe0b, 0x8855ff, 0xff8e71];
+    const balloonColor = balloonColors[Math.floor(Math.random() * balloonColors.length)];
     
     const bodyMaterial = new THREE.MeshStandardMaterial({ 
-      color: droneColor,
-      metalness: 0.9,
-      roughness: 0.1,
-      emissive: droneColor,
-      emissiveIntensity: 0.3
+      color: balloonColor,
+      metalness: 0.1,
+      roughness: 0.2,
+      emissive: balloonColor,
+      emissiveIntensity: 0.2
     });
     
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     
-    // Propellers
-    const propGeometry = new THREE.BoxGeometry(1.5, 0.05, 0.2);
-    const propMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x666666,
-      metalness: 0.8,
-      roughness: 0.2
+    // Balloon knot
+    const knotGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+    const knotMaterial = new THREE.MeshStandardMaterial({ 
+      color: balloonColor,
+      metalness: 0.2,
+      roughness: 0.8
     });
     
-    const propeller1 = new THREE.Mesh(propGeometry, propMaterial);
-    propeller1.position.y = 0.3;
+    const knot = new THREE.Mesh(knotGeometry, knotMaterial);
+    knot.position.y = -0.8;
     
-    const propeller2 = new THREE.Mesh(propGeometry, propMaterial);
-    propeller2.position.y = 0.3;
-    propeller2.rotation.y = Math.PI / 2;
-    
-    // Camera/speaker
-    const cameraGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.3, 8);
-    const cameraMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xff0000,
-      emissive: 0xff0000,
-      emissiveIntensity: 0.5
+    // String
+    const stringGeometry = new THREE.CylinderGeometry(0.02, 0.02, 2, 3);
+    const stringMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff,
+      metalness: 0.1,
+      roughness: 0.6
     });
     
-    const droneCamera = new THREE.Mesh(cameraGeometry, cameraMaterial);
-    droneCamera.position.y = -0.3;
-    droneCamera.rotation.x = Math.PI / 2;
+    const string = new THREE.Mesh(stringGeometry, stringMaterial);
+    string.position.y = -1.8;
     
-    // Drone group
-    const drone = new THREE.Group();
-    drone.add(body, propeller1, propeller2, droneCamera);
+    // Balloon group
+    const balloon = new THREE.Group();
+    balloon.add(body, knot, string);
     
     // Random position
     const x = Math.random() * 80 - 40;
     const z = Math.random() * 80 - 40;
-    drone.position.set(x, 3 + Math.random() * 3, z);
+    balloon.position.set(x, 3 + Math.random() * 5, z);
     
-    // Add drone data
-    drone.userData = {
+    // Add balloon data
+    balloon.userData = {
       id: i,
-      isDestroyed: false,
-      originalColor: droneColor,
+      isPopped: false,
+      originalColor: balloonColor,
       speed: 0.02 + Math.random() * 0.03,
       rotationSpeed: 0.01 + Math.random() * 0.02,
       hoverAmplitude: 0.1 + Math.random() * 0.1,
       hoverFrequency: 0.5 + Math.random() * 1,
       targetPosition: new THREE.Vector3(
         Math.random() * 80 - 40,
-        3 + Math.random() * 3,
+        3 + Math.random() * 5,
         Math.random() * 80 - 40
       ),
       timeSinceTargetChange: 0
     };
     
-    scene.add(drone);
-    gameState.drones.push(drone);
+    scene.add(balloon);
+    gameState.balloons.push(balloon);
   }
 }
 
-function createPriests(count) {
+function createPartyKids(count) {
   for (let i = 0; i < count; i++) {
-    // Priest body
-    const bodyGeometry = new THREE.ConeGeometry(0.8, 2.5, 8);
+    // Kid body
+    const bodyGeometry = new THREE.CylinderGeometry(0.6, 0.4, 2, 8);
+    const kidColors = [0xff8e71, 0xffbe0b, 0x4ecdc4, 0x8855ff, 0xff6b6b];
+    const kidColor = kidColors[Math.floor(Math.random() * kidColors.length)];
+    
     const bodyMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x000000,
-      metalness: 0.7,
-      roughness: 0.3
+      color: kidColor,
+      metalness: 0.1,
+      roughness: 0.8
     });
     
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     
-    // Head with AI interface
+    // Head
     const headGeometry = new THREE.SphereGeometry(0.6, 16, 16);
     const headMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xCCCCCC,
-      metalness: 0.9,
-      roughness: 0.1
+      color: 0xffdbac,
+      metalness: 0.1,
+      roughness: 0.7
     });
     
     const head = new THREE.Mesh(headGeometry, headMaterial);
     head.position.y = 1.5;
     
-    // AI face
-    const faceGeometry = new THREE.PlaneGeometry(0.8, 0.8);
-    const faceMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x00ffff,
-      emissive: 0x00ffff,
-      emissiveIntensity: 0.7,
-      side: THREE.DoubleSide
+    // Party hat
+    const hatGeometry = new THREE.ConeGeometry(0.5, 1, 8);
+    const hatMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x8855ff,
+      metalness: 0.2,
+      roughness: 0.6
     });
     
-    const face = new THREE.Mesh(faceGeometry, faceMaterial);
-    face.position.set(0, 1.5, 0.5);
+    const hat = new THREE.Mesh(hatGeometry, hatMaterial);
+    hat.position.set(0, 2.3, 0);
     
-    // Priest group
-    const priest = new THREE.Group();
-    priest.add(body, head, face);
+    // Kid group
+    const kid = new THREE.Group();
+    kid.add(body, head, hat);
     
     // Random position
     const x = Math.random() * 70 - 35;
     const z = Math.random() * 70 - 35;
-    priest.position.set(x, 1.25, z);
+    kid.position.set(x, 1, z);
     
-    // Add priest data
-    priest.userData = {
+    // Add kid data
+    kid.userData = {
       id: i,
       speed: 0.03 + Math.random() * 0.02,
       detectionRange: 10,
       targetPosition: new THREE.Vector3(
         Math.random() * 70 - 35,
-        1.25,
+        1,
         Math.random() * 70 - 35
       ),
       timeSinceTargetChange: 0
     };
     
-    scene.add(priest);
-    gameState.priests.push(priest);
+    scene.add(kid);
+    gameState.partyKids.push(kid);
   }
 }
 
@@ -467,7 +476,7 @@ function setupControls() {
     if (!gameState.isPlaying || gameState.isPaused) return;
     
     if (controls.isLocked) {
-      shootPietyBolt();
+      shootPinProjectile();
     } else {
       controls.lock();
     }
@@ -494,70 +503,65 @@ function setupControls() {
   });
 }
 
-function updateDrones(delta) {
-  gameState.drones.forEach(drone => {
-    if (drone.userData.isDestroyed) return;
+function updateBalloons(delta) {
+  gameState.balloons.forEach(balloon => {
+    if (balloon.userData.isPopped) return;
     
-    // Animate propellers
-    drone.children[1].rotation.y += 0.2;
-    drone.children[2].rotation.y += 0.2;
-    
-    // Hover effect
-    drone.position.y += Math.sin(Date.now() * 0.001 * drone.userData.hoverFrequency) * 0.01 * drone.userData.hoverAmplitude;
+    // Floating effect
+    balloon.position.y += Math.sin(Date.now() * 0.001 * balloon.userData.hoverFrequency) * 0.01 * balloon.userData.hoverAmplitude;
     
     // Move towards target
-    drone.userData.timeSinceTargetChange += delta;
+    balloon.userData.timeSinceTargetChange += delta;
     
-    if (drone.userData.timeSinceTargetChange > 5) {
-      drone.userData.targetPosition.set(
+    if (balloon.userData.timeSinceTargetChange > 5) {
+      balloon.userData.targetPosition.set(
         Math.random() * 80 - 40,
-        3 + Math.random() * 3,
+        3 + Math.random() * 5,
         Math.random() * 80 - 40
       );
-      drone.userData.timeSinceTargetChange = 0;
+      balloon.userData.timeSinceTargetChange = 0;
     }
     
     const directionToTarget = new THREE.Vector3()
-      .subVectors(drone.userData.targetPosition, drone.position)
+      .subVectors(balloon.userData.targetPosition, balloon.position)
       .normalize();
     
-    drone.position.add(directionToTarget.multiplyScalar(drone.userData.speed));
+    balloon.position.add(directionToTarget.multiplyScalar(balloon.userData.speed));
     
-    // Rotate to face direction
-    const targetRotation = Math.atan2(directionToTarget.x, directionToTarget.z);
-    drone.rotation.y = targetRotation;
+    // Gentle rotation
+    balloon.rotation.y += balloon.userData.rotationSpeed * delta;
   });
 }
 
-function updatePriests(delta) {
-  gameState.priests.forEach(priest => {
+function updatePartyKids(delta) {
+  gameState.partyKids.forEach(kid => {
     // Move towards target
-    priest.userData.timeSinceTargetChange += delta;
+    kid.userData.timeSinceTargetChange += delta;
     
-    if (priest.userData.timeSinceTargetChange > 8) {
-      priest.userData.targetPosition.set(
+    if (kid.userData.timeSinceTargetChange > 8) {
+      kid.userData.targetPosition.set(
         Math.random() * 70 - 35,
-        1.25,
+        1,
         Math.random() * 70 - 35
       );
-      priest.userData.timeSinceTargetChange = 0;
+      kid.userData.timeSinceTargetChange = 0;
     }
     
     const directionToTarget = new THREE.Vector3()
-      .subVectors(priest.userData.targetPosition, priest.position)
+      .subVectors(kid.userData.targetPosition, kid.position)
       .normalize();
     
-    priest.position.add(directionToTarget.multiplyScalar(priest.userData.speed));
+    kid.position.add(directionToTarget.multiplyScalar(kid.userData.speed));
     
     // Rotate to face direction
     const targetRotation = Math.atan2(directionToTarget.x, directionToTarget.z);
-    priest.rotation.y = targetRotation;
+    kid.rotation.y = targetRotation;
     
-    // Check if priest can detect player
-    const distanceToPlayer = priest.position.distanceTo(camera.position);
-    if (distanceToPlayer < priest.userData.detectionRange) {
+    // Check if kid can detect player
+    const distanceToPlayer = kid.position.distanceTo(camera.position);
+    if (distanceToPlayer < kid.userData.detectionRange) {
       // Increase detection based on proximity
-      const detectionIncrease = (1 - distanceToPlayer / priest.userData.detectionRange) * delta * 10;
+      const detectionIncrease = (1 - distanceToPlayer / kid.userData.detectionRange) * delta * 10;
       gameState.detectionLevel += detectionIncrease;
       
       // Update UI
@@ -571,16 +575,16 @@ function updatePriests(delta) {
   });
 }
 
-function shootPietyBolt() {
-  if (gameState.faith < 10) return; // Not enough faith
+function shootPinProjectile() {
+  if (gameState.happiness < 10) return; // Not enough happiness
   
-  // Deduct faith
-  gameState.faith -= 10;
-  updateFaithMeter();
-  startFaithCooldown();
+  // Deduct happiness
+  gameState.happiness -= 10;
+  updateHappinessMeter();
+  startHappinessCooldown();
   
   // Play sound
-  sounds.boltShot.play();
+  sounds.pinShot.play();
   
   // Create projectile in 3D space
   const direction = new THREE.Vector3(0, 0, -1);
@@ -624,10 +628,10 @@ function updateProjectiles(delta) {
       bolt.mesh.position.copy(bolt.position);
     }
     
-    // Check for collisions with drones
-    gameState.drones.forEach(drone => {
-      if (!drone.userData.isDestroyed && bolt.position.distanceTo(drone.position) < 0.8) {
-        destroyDrone(drone, bolt.position);
+    // Check for collisions with balloons
+    gameState.balloons.forEach(balloon => {
+      if (!balloon.userData.isPopped && bolt.position.distanceTo(balloon.position) < 1.2) {
+        popBalloon(balloon, bolt.position);
         removeBolt(i);
         return;
       }
@@ -649,24 +653,24 @@ function removeBolt(index) {
   gameState.projectiles.splice(index, 1);
 }
 
-function destroyDrone(drone, position) {
-  // Only destroy if not already destroyed
-  if (!drone.userData.isDestroyed) {
-    // Play explosion sound
-    sounds.explosion.play();
+function popBalloon(balloon, position) {
+  // Only pop if not already popped
+  if (!balloon.userData.isPopped) {
+    // Play pop sound
+    sounds.balloonPop.play();
     
-    // Update drone status
-    drone.userData.isDestroyed = true;
+    // Update balloon status
+    balloon.userData.isPopped = true;
     
-    // Make drone fall
-    drone.userData.isFalling = true;
-    drone.userData.fallVelocity = 0;
+    // Make balloon pieces fall
+    balloon.userData.isFalling = true;
+    balloon.userData.fallVelocity = 0;
     
-    // Create explosion effect
-    createExplosion(position);
+    // Create pop effect
+    createPopEffect(position);
     
-    // Show destruction message
-    elements.hackSuccess.textContent = "DRONE DESTROYED!";
+    // Show pop message
+    elements.hackSuccess.textContent = "BALLOON POPPED!";
     elements.hackSuccess.classList.remove('hidden');
     elements.hackSuccess.classList.add('drone-destroyed');
     setTimeout(() => {
@@ -675,45 +679,43 @@ function destroyDrone(drone, position) {
     }, 1000);
     
     // Update stats
-    gameState.dronesDestroyed++;
-    gameState.scripturesBroadcast++;
+    gameState.balloonsPopped++;
+    gameState.meanCommentsMade++;
     
     // Update UI
-    elements.dronesHacked.textContent = gameState.dronesDestroyed;
-    elements.scripturesCount.textContent = gameState.scripturesBroadcast;
+    elements.balloonsPopped.textContent = gameState.balloonsPopped;
+    elements.meanCommentsMade.textContent = gameState.meanCommentsMade;
     
-    // Create a floating scripture text
-    createScriptureText(drone.position);
+    // Create a floating mean comment text
+    createMeanCommentText(balloon.position);
     
     // Check win condition
-    if (gameState.dronesDestroyed >= gameState.drones.length) {
+    if (gameState.balloonsPopped >= gameState.balloons.length) {
       endGame(true);
     }
   }
 }
 
-function createExplosion(position) {
-  // Create 3D explosion effect
-  const explosionLight = new THREE.PointLight(0xffcc00, 5, 10);
-  explosionLight.position.copy(position);
-  scene.add(explosionLight);
+function createPopEffect(position) {
+  // Create 3D pop effect
+  const popLight = new THREE.PointLight(0xffbe0b, 5, 10);
+  popLight.position.copy(position);
+  scene.add(popLight);
   
   // Remove light after animation
   setTimeout(() => {
-    scene.remove(explosionLight);
+    scene.remove(popLight);
   }, 500);
   
-  // Create 2D explosion element
-  const explosionElem = document.createElement('div');
-  explosionElem.classList.add('explosion');
-  explosionElem.innerHTML = `
+  // Create 2D pop element
+  const popElem = document.createElement('div');
+  popElem.classList.add('explosion');
+  popElem.innerHTML = `
     <svg width="100" height="100" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="50" fill="#ffcc00" />
-      <circle cx="50" cy="50" r="40" fill="#ff9900" />
-      <circle cx="50" cy="50" r="25" fill="#ffffff" />
+      <text x="50" y="50" text-anchor="middle" dominant-baseline="middle" fill="#ff6b6b" font-size="24" font-weight="bold">POP!</text>
     </svg>
   `;
-  document.getElementById('game-area').appendChild(explosionElem);
+  document.getElementById('game-area').appendChild(popElem);
   
   // Position the explosion
   const vector = position.clone();
@@ -722,32 +724,32 @@ function createExplosion(position) {
   const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
   const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
   
-  explosionElem.style.left = `${x - 50}px`;
-  explosionElem.style.top = `${y - 50}px`;
+  popElem.style.left = `${x - 50}px`;
+  popElem.style.top = `${y - 50}px`;
   
   // Remove element after animation
   setTimeout(() => {
-    if (explosionElem.parentNode) {
-      explosionElem.parentNode.removeChild(explosionElem);
+    if (popElem.parentNode) {
+      popElem.parentNode.removeChild(popElem);
     }
   }, 500);
 }
 
-function createScriptureText(position) {
-  // Get a random scripture
-  const scripture = gameState.scriptures[Math.floor(Math.random() * gameState.scriptures.length)];
+function createMeanCommentText(position) {
+  // Get a random mean comment
+  const comment = gameState.meanComments[Math.floor(Math.random() * gameState.meanComments.length)];
   
   // Create a floating text div
   const textElem = document.createElement('div');
-  textElem.classList.add('scripture-text');
-  textElem.textContent = scripture;
+  textElem.classList.add('mean-comment-text');
+  textElem.textContent = comment;
   textElem.style.position = 'absolute';
-  textElem.style.color = '#33ff33';
+  textElem.style.color = '#ff006e';
   textElem.style.fontSize = '14px';
-  textElem.style.textShadow = '0 0 5px #33ff33';
+  textElem.style.textShadow = '0 0 5px #ff006e';
   textElem.style.padding = '10px';
   textElem.style.borderRadius = '5px';
-  textElem.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  textElem.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
   textElem.style.zIndex = '5';
   textElem.style.opacity = '0';
   textElem.style.transition = 'opacity 0.5s ease-in-out';
@@ -785,15 +787,15 @@ function updatePlayerMovement(delta) {
   velocity.z -= velocity.z * 10.0 * delta;
   
   // Apply gravity unless jetpack is active
-  if (jetpackActive && gameState.faith > 0) {
-    velocity.y += 0.075; 
-    gameState.faith -= 0.5;
-    updateFaithMeter();
+  if (jetpackActive && gameState.happiness > 0) {
+    velocity.y += 0.0375; 
+    gameState.happiness -= 0.5;
+    updateHappinessMeter();
     
-    if (gameState.faith <= 0) {
+    if (gameState.happiness <= 0) {
       jetpackActive = false;
       sounds.jetpack.stop();
-      startFaithCooldown();
+      startHappinessCooldown();
     }
   } else {
     velocity.y -= gravity;
@@ -806,7 +808,7 @@ function updatePlayerMovement(delta) {
   direction.x = Number(moveRight) - Number(moveLeft);
   direction.normalize();
   
-  const speed = 20.0; 
+  const speed = 40.0; 
   
   if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
   if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
@@ -827,45 +829,51 @@ function updatePlayerMovement(delta) {
   gameState.playerPosition.copy(camera.position);
 }
 
-function updateFaithMeter() {
+function updateHappinessMeter() {
   // Update UI
-  elements.faithFill.style.width = `${Math.max(0, (gameState.faith / gameState.maxFaith) * 100)}%`;
+  elements.happinessFill.style.width = `${Math.max(0, (gameState.happiness / gameState.maxHappiness) * 100)}%`;
 }
 
-function startFaithCooldown() {
-  gameState.faithRecharging = false;
-  gameState.faithRechargeTimer = 0;
-  elements.faithFill.classList.add('cooldown');
+function startHappinessCooldown() {
+  gameState.happinessRecharging = false;
+  gameState.happinessRechargeTimer = 0;
+  elements.happinessFill.classList.add('cooldown');
 }
 
-function updateFaithRecharge(delta) {
-  if (!gameState.faithRecharging) {
-    gameState.faithRechargeTimer += delta;
+function updateHappinessRecharge(delta) {
+  if (!gameState.happinessRecharging) {
+    gameState.happinessRechargeTimer += delta;
     
-    if (gameState.faithRechargeTimer >= 2) {
-      gameState.faithRecharging = true;
-      elements.faithFill.classList.remove('cooldown');
+    if (gameState.happinessRechargeTimer >= 1) { 
+      gameState.happinessRecharging = true;
+      elements.happinessFill.classList.remove('cooldown');
     }
-  } else if (gameState.faith < gameState.maxFaith) {
-    gameState.faith = Math.min(gameState.maxFaith, gameState.faith + delta * 30);
-    updateFaithMeter();
+  } else if (gameState.happiness < gameState.maxHappiness) {
+    gameState.happiness = Math.min(gameState.maxHappiness, gameState.happiness + delta * 30);
+    updateHappinessMeter();
   }
 }
 
-function updateFallingDrones(delta) {
-  gameState.drones.forEach(drone => {
-    if (drone.userData.isFalling) {
-      drone.userData.fallVelocity += gravity * delta * 30;
-      drone.position.y -= drone.userData.fallVelocity;
+function updateFallingBalloonPieces(delta) {
+  gameState.balloons.forEach(balloon => {
+    if (balloon.userData.isFalling) {
+      balloon.userData.fallVelocity += gravity * delta * 30;
+      balloon.position.y -= balloon.userData.fallVelocity;
       
-      // Spin the falling drone
-      drone.rotation.x += 0.05;
-      drone.rotation.z += 0.03;
+      // Spin the falling balloon pieces
+      balloon.rotation.x += 0.05;
+      balloon.rotation.z += 0.03;
+      balloon.scale.set(
+        balloon.scale.x * 0.97,
+        balloon.scale.y * 0.97,
+        balloon.scale.z * 0.97
+      );
       
-      // Remove drone once it hits the ground
-      if (drone.position.y < 0.5) {
-        drone.position.y = 0.5;
-        drone.userData.isFalling = false;
+      // Remove balloon once it hits the ground
+      if (balloon.position.y < 0.5) {
+        balloon.position.y = 0.5;
+        balloon.userData.isFalling = false;
+        scene.remove(balloon);
       }
     }
   });
@@ -901,18 +909,18 @@ function startGame() {
   // Reset game state
   gameState.isPlaying = true;
   gameState.isPaused = false;
-  gameState.dronesDestroyed = 0;
-  gameState.scripturesBroadcast = 0;
+  gameState.balloonsPopped = 0;
+  gameState.meanCommentsMade = 0;
   gameState.detectionLevel = 0;
-  gameState.faith = gameState.maxFaith;
-  gameState.faithRecharging = true;
+  gameState.happiness = gameState.maxHappiness;
+  gameState.happinessRecharging = true;
   gameState.projectiles = [];
   
   // Reset UI
-  elements.dronesHacked.textContent = '0';
-  elements.scripturesCount.textContent = '0';
+  elements.balloonsPopped.textContent = '0';
+  elements.meanCommentsMade.textContent = '0';
   elements.detectionFill.style.width = '0%';
-  updateFaithMeter();
+  updateHappinessMeter();
   
   // Hide menu
   elements.menu.classList.add('hidden');
@@ -922,7 +930,7 @@ function startGame() {
   
   // Start sounds
   sounds.ambience.play();
-  sounds.droneHum.play();
+  sounds.balloonFloat.play();
   
   // Reset clock
   clock.start();
@@ -937,17 +945,17 @@ function endGame(isVictory) {
   controls.unlock();
   
   // Update game over screen
-  elements.gameOverTitle.textContent = isVictory ? 'MISSION COMPLETE' : 'MISSION FAILED';
+  elements.gameOverTitle.textContent = isVictory ? 'PARTY RUINED!' : 'YOU GOT CAUGHT!';
   elements.gameOverMessage.textContent = isVictory 
-    ? 'You successfully destroyed all drones and spread the forbidden scriptures!'
-    : 'You have been detected by the AI priests and excommunicated from SALVATION™.';
+    ? 'You successfully popped all the balloons and ruined the party!'
+    : 'The party kids caught you being mean and told their parents!';
   
-  elements.finalDrones.textContent = gameState.dronesDestroyed;
-  elements.finalScriptures.textContent = gameState.scripturesBroadcast;
+  elements.finalBalloons.textContent = gameState.balloonsPopped;
+  elements.finalComments.textContent = gameState.meanCommentsMade;
   
   // Stop sounds
   sounds.ambience.stop();
-  sounds.droneHum.stop();
+  sounds.balloonFloat.stop();
   sounds.jetpack.stop();
   
   // Show game over screen
@@ -966,17 +974,17 @@ function animate() {
   // Update player movement
   updatePlayerMovement(delta);
   
-  // Update faith recharge
-  updateFaithRecharge(delta);
+  // Update happiness recharge
+  updateHappinessRecharge(delta);
   
-  // Update drones
-  updateDrones(delta);
+  // Update balloons
+  updateBalloons(delta);
   
-  // Update falling drones
-  updateFallingDrones(delta);
+  // Update falling balloon pieces
+  updateFallingBalloonPieces(delta);
   
-  // Update priests
-  updatePriests(delta);
+  // Update party kids
+  updatePartyKids(delta);
   
   // Update projectiles
   updateProjectiles(delta);
