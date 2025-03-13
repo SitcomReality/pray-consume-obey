@@ -1,0 +1,144 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRAY. CONSUME. OBEY.</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/howler@2.2.3/dist/howler.min.js"></script>
+  <script type="module" src="script.js" defer></script>
+</head>
+<body>
+  <div id="background"></div>
+  
+  <div id="game-container">
+    <div id="header">
+      <h1>PRAY. CONSUME. OBEY.</h1>
+      <h2>(SALVATION SOLD SEPARATELY)</h2>
+    </div>
+    
+    <div id="main-content">
+      <div id="game-area">
+        <canvas id="game-canvas"></canvas>
+        <div id="target-indicator" class="hidden">TARGET LOCKED</div>
+        <div id="hack-success" class="hidden">DRONE HACKED!</div>
+      </div>
+      
+      <div id="sidebar">
+        <div id="mission-panel">
+          <h3>MISSION LOG</h3>
+          <p>You are a heretic in SALVATION™ MegaChurch Theme Park.</p>
+          <p>Hack the hymn-singing drones to broadcast forbidden scriptures.</p>
+          <p>Avoid detection by the AI priests.</p>
+        </div>
+        
+        <div id="stats-panel">
+          <div class="stat">
+            <span>Drones Hacked:</span>
+            <span id="drones-hacked">0</span>
+          </div>
+          <div class="stat">
+            <span>Detection Level:</span>
+            <div id="detection-meter">
+              <div id="detection-fill"></div>
+            </div>
+          </div>
+          <div class="stat">
+            <span>Scriptures Broadcast:</span>
+            <span id="scriptures-count">0</span>
+          </div>
+        </div>
+        
+        <div id="controls-help">
+          <h3>CONTROLS</h3>
+          <p>WASD - Move</p>
+          <p>MOUSE - Look</p>
+          <p>CLICK - Hack Drone</p>
+          <p>ESC - Toggle Menu</p>
+        </div>
+      </div>
+    </div>
+    
+    <div id="footer">
+      <div id="message-ticker">
+        <div id="ticker-content">BREAKING NEWS: SALVATION™ NFTs HIT RECORD HIGH - TITHING REACHES 95% OF AVERAGE INCOME - NEW NEURAL IMPLANT UPDATE INCREASES RAPTURE SENSATION BY 250%</div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="menu" class="hidden">
+    <div class="menu-content">
+      <h2>FAITH OS v6.66</h2>
+      <button id="start-game">START MISSION</button>
+      <button id="shop-button">GIFT SHOP</button>
+      <button id="about-button">ABOUT</button>
+    </div>
+  </div>
+  
+  <div id="shop-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>SALVATION™ GIFT SHOP</h2>
+      <div class="shop-items">
+        <div class="shop-item">
+          <div class="crucifix-usb">
+            <div class="usb-cross"></div>
+            <div class="usb-connector"></div>
+          </div>
+          <h3>CRUCIFIX USB</h3>
+          <p>Pre-loaded with SALVATION™ malware</p>
+          <p class="price">199.99 FAITH TOKENS</p>
+        </div>
+        <div class="shop-item">
+          <div class="neural-implant">
+            <div class="implant-body"></div>
+            <div class="implant-connector"></div>
+          </div>
+          <h3>RAPTURE IMPLANT+</h3>
+          <p>Premium dopamine drip for major tithers</p>
+          <p class="price">999.99 FAITH TOKENS</p>
+        </div>
+        <div class="shop-item">
+          <div class="nft-token">
+            <div class="token-glow"></div>
+            <div class="token-symbol">NFT</div>
+          </div>
+          <h3>SALVATION™ NFT</h3>
+          <p>Blockchain guarantee of eternal life</p>
+          <p class="price">5999.99 FAITH TOKENS</p>
+        </div>
+      </div>
+      <button id="close-shop">CLOSE</button>
+    </div>
+  </div>
+  
+  <div id="about-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>ABOUT THE HERESY</h2>
+      <p>In a world where faith has been commodified, a lone heretic fights to restore the original message.</p>
+      <p>The MegaChurch conglomerate has replaced spirituality with consumption, confession with data mining, and salvation with blockchain tokens.</p>
+      <p>Your mission: hack the system from within by reprogramming hymn-singing drones to broadcast forbidden scriptures like "Blessed are the poor" and "It is easier for a camel to go through the eye of a needle than for a rich man to enter the kingdom of God."</p>
+      <button id="close-about">CLOSE</button>
+    </div>
+  </div>
+  
+  <div id="game-over" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="game-over-title">MISSION FAILED</h2>
+      <p id="game-over-message">You have been detected by the AI priests and excommunicated from SALVATION™.</p>
+      <div id="game-stats">
+        <p>Drones Hacked: <span id="final-drones"></span></p>
+        <p>Scriptures Broadcast: <span id="final-scriptures"></span></p>
+      </div>
+      <button id="restart-game">TRY AGAIN</button>
+    </div>
+  </div>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"9e7a35fb0ca6ae97","version":"2025.9.1","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"token":"4c6229722a6346bc8eb5cb0e5eae5d41","b":1}' crossorigin="anonymous"></script>
+</body>
+</html>
