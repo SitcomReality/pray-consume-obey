@@ -446,3 +446,12 @@ button:hover {
   background-color: rgba(40, 40, 40, 0.7);
   border-radius: 8px;
 }
+
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 3;
+}

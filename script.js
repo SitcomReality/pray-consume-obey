@@ -93,6 +93,7 @@ let direction = new THREE.Vector3();
 let raycaster = new THREE.Raycaster();
 let clock = new THREE.Clock();
 let gravity = 0.08;
+let crosshair;
 
 function initThree() {
   // Scene
@@ -159,6 +160,9 @@ function initThree() {
   
   // Set up controls
   setupControls();
+  
+  // Add crosshair
+  createCrosshair();
 }
 
 function addPointLight(color, x, y, z, intensity = 1, distance = 15) {
@@ -274,10 +278,17 @@ function createDrones(count) {
   for (let i = 0; i < count; i++) {
     // Drone body
     const bodyGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    
+    // Brighter colors for drones
+    const droneColors = [0xff00ff, 0x00ffff, 0xffcc00, 0xff3333, 0x33ff33];
+    const droneColor = droneColors[Math.floor(Math.random() * droneColors.length)];
+    
     const bodyMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x333333,
+      color: droneColor,
       metalness: 0.9,
-      roughness: 0.1
+      roughness: 0.1,
+      emissive: droneColor,
+      emissiveIntensity: 0.3
     });
     
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
@@ -322,7 +333,7 @@ function createDrones(count) {
     drone.userData = {
       id: i,
       isDestroyed: false,
-      originalColor: 0xff0000,
+      originalColor: droneColor,
       speed: 0.02 + Math.random() * 0.03,
       rotationSpeed: 0.01 + Math.random() * 0.02,
       hoverAmplitude: 0.1 + Math.random() * 0.1,
@@ -588,18 +599,17 @@ function shootPietyBolt() {
   
   gameState.projectiles.push(bolt);
   
-  // Create visual element
-  const boltElem = document.createElement('div');
-  boltElem.classList.add('projectile');
-  boltElem.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 20 20">
-      <polygon points="10,0 20,10 10,20 0,10" fill="#ffcc00" />
-      <circle cx="10" cy="10" r="5" fill="#ffffff" />
-    </svg>
-  `;
-  document.getElementById('game-area').appendChild(boltElem);
+  // Create visual element in 3D space
+  const geometry = new THREE.ConeGeometry(0.1, 0.5, 8);
+  geometry.rotateX(Math.PI / 2);
+  const material = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+  const meshBolt = new THREE.Mesh(geometry, material);
   
-  bolt.element = boltElem;
+  meshBolt.position.copy(bolt.position);
+  meshBolt.quaternion.copy(camera.quaternion);
+  scene.add(meshBolt);
+  
+  bolt.mesh = meshBolt;
 }
 
 function updateProjectiles(delta) {
@@ -609,15 +619,10 @@ function updateProjectiles(delta) {
     // Update position
     bolt.position.add(bolt.direction.clone().multiplyScalar(bolt.speed));
     
-    // Update 2D position
-    const vector = bolt.position.clone();
-    vector.project(camera);
-    
-    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
-    
-    bolt.element.style.left = `${x}px`;
-    bolt.element.style.top = `${y}px`;
+    // Update 3D mesh position
+    if (bolt.mesh) {
+      bolt.mesh.position.copy(bolt.position);
+    }
     
     // Check for collisions with drones
     gameState.drones.forEach(drone => {
@@ -638,8 +643,8 @@ function updateProjectiles(delta) {
 
 function removeBolt(index) {
   const bolt = gameState.projectiles[index];
-  if (bolt.element && bolt.element.parentNode) {
-    bolt.element.parentNode.removeChild(bolt.element);
+  if (bolt.mesh) {
+    scene.remove(bolt.mesh);
   }
   gameState.projectiles.splice(index, 1);
 }
@@ -781,7 +786,7 @@ function updatePlayerMovement(delta) {
   
   // Apply gravity unless jetpack is active
   if (jetpackActive && gameState.faith > 0) {
-    velocity.y += 0.15;
+    velocity.y += 0.075; 
     gameState.faith -= 0.5;
     updateFaithMeter();
     
@@ -801,7 +806,7 @@ function updatePlayerMovement(delta) {
   direction.x = Number(moveRight) - Number(moveLeft);
   direction.normalize();
   
-  const speed = 5.0;
+  const speed = 20.0; 
   
   if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
   if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
@@ -978,6 +983,22 @@ function animate() {
   
   // Render scene
   renderer.render(scene, camera);
+}
+
+function createCrosshair() {
+  crosshair = document.createElement('div');
+  crosshair.id = 'crosshair';
+  crosshair.innerHTML = `
+    <svg width="30" height="30" viewBox="0 0 30 30">
+      <circle cx="15" cy="15" r="13" stroke="#ffcc00" stroke-width="1" fill="none" stroke-opacity="0.6" />
+      <circle cx="15" cy="15" r="2" fill="#ffcc00" fill-opacity="0.8" />
+      <line x1="15" y1="5" x2="15" y2="10" stroke="#ffcc00" stroke-width="1" stroke-opacity="0.6" />
+      <line x1="15" y1="20" x2="15" y2="25" stroke="#ffcc00" stroke-width="1" stroke-opacity="0.6" />
+      <line x1="5" y1="15" x2="10" y2="15" stroke="#ffcc00" stroke-width="1" stroke-opacity="0.6" />
+      <line x1="20" y1="15" x2="25" y2="15" stroke="#ffcc00" stroke-width="1" stroke-opacity="0.6" />
+    </svg>
+  `;
+  document.getElementById('game-area').appendChild(crosshair);
 }
 
 // Event listeners
