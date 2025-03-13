@@ -99,6 +99,7 @@ function initThree() {
   // Scene
   scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x88ccff, 0.01);
+  scene.background = new THREE.Color(0x88ccff); // Add blue sky background
   
   // Camera
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
