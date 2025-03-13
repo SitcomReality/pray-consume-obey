@@ -4,13 +4,20 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 // Game state
 const gameState = {
   isPlaying: false,
-  dronesHacked: 0,
+  dronesDestroyed: 0,
   scripturesBroadcast: 0,
   detectionLevel: 0,
   playerPosition: new THREE.Vector3(0, 1.6, 0),
   targetedDrone: null,
   drones: [],
   priests: [],
+  faith: 100,
+  maxFaith: 100,
+  faithRecharging: true,
+  faithRechargeTimer: 0,
+  isJetpackActive: false,
+  projectiles: [],
+  isPaused: false,
   scriptures: [
     "Blessed are the poor, for theirs is the kingdom of heaven.",
     "It is easier for a camel to go through the eye of a needle than for a rich man to enter the kingdom of God.",
@@ -34,9 +41,18 @@ const sounds = {
     volume: 0.2,
     loop: true
   }),
-  hack: new Howl({
+  boltShot: new Howl({
     src: ['data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gQ29ueWFjIFNvdW5kYmFua////0A='],
     volume: 0.5
+  }),
+  explosion: new Howl({
+    src: ['data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gQ29ueWFjIFNvdW5kYmFua////0A='],
+    volume: 0.7
+  }),
+  jetpack: new Howl({
+    src: ['data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gQ29ueWFjIFNvdW5kYmFua////0A='],
+    volume: 0.4,
+    loop: true
   }),
   detected: new Howl({
     src: ['data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gQ29ueWFjIFNvdW5kYmFua////0A='],
@@ -58,6 +74,7 @@ const elements = {
   dronesHacked: document.getElementById('drones-hacked'),
   scripturesCount: document.getElementById('scriptures-count'),
   detectionFill: document.getElementById('detection-fill'),
+  faithFill: document.getElementById('faith-fill'),
   targetIndicator: document.getElementById('target-indicator'),
   hackSuccess: document.getElementById('hack-success'),
   gameOver: document.getElementById('game-over'),
@@ -70,11 +87,12 @@ const elements = {
 
 // THREE.js setup
 let scene, camera, renderer, controls;
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, jetpackActive = false;
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 let raycaster = new THREE.Raycaster();
 let clock = new THREE.Clock();
+let gravity = 0.08;
 
 function initThree() {
   // Scene
@@ -303,9 +321,8 @@ function createDrones(count) {
     // Add drone data
     drone.userData = {
       id: i,
-      isHacked: false,
+      isDestroyed: false,
       originalColor: 0xff0000,
-      hackedColor: 0x33ff33,
       speed: 0.02 + Math.random() * 0.03,
       rotationSpeed: 0.01 + Math.random() * 0.02,
       hoverAmplitude: 0.1 + Math.random() * 0.1,
@@ -387,7 +404,7 @@ function createPriests(count) {
 
 function setupControls() {
   const onKeyDown = function(event) {
-    if (!gameState.isPlaying) return;
+    if (!gameState.isPlaying || gameState.isPaused) return;
     
     switch(event.code) {
       case 'KeyW':
@@ -401,6 +418,12 @@ function setupControls() {
         break;
       case 'KeyD':
         moveRight = true;
+        break;
+      case 'Space':
+        jetpackActive = true;
+        if (!sounds.jetpack.playing()) {
+          sounds.jetpack.play();
+        }
         break;
       case 'Escape':
         toggleMenu();
@@ -422,16 +445,18 @@ function setupControls() {
       case 'KeyD':
         moveRight = false;
         break;
+      case 'Space':
+        jetpackActive = false;
+        sounds.jetpack.stop();
+        break;
     }
   };
   
-  const onClick = function() {
-    if (!gameState.isPlaying) return;
+  const onClick = function(event) {
+    if (!gameState.isPlaying || gameState.isPaused) return;
     
     if (controls.isLocked) {
-      if (gameState.targetedDrone) {
-        hackDrone(gameState.targetedDrone);
-      }
+      shootPietyBolt();
     } else {
       controls.lock();
     }
@@ -444,18 +469,24 @@ function setupControls() {
   controls.addEventListener('lock', function() {
     if (gameState.isPlaying) {
       elements.menu.classList.add('hidden');
+      gameState.isPaused = false;
+      clock.start();
     }
   });
   
   controls.addEventListener('unlock', function() {
-    if (gameState.isPlaying) {
+    if (gameState.isPlaying && !gameState.isPaused) {
       elements.menu.classList.remove('hidden');
+      gameState.isPaused = true;
+      clock.stop();
     }
   });
 }
 
 function updateDrones(delta) {
   gameState.drones.forEach(drone => {
+    if (drone.userData.isDestroyed) return;
+    
     // Animate propellers
     drone.children[1].rotation.y += 0.2;
     drone.children[2].rotation.y += 0.2;
@@ -484,12 +515,6 @@ function updateDrones(delta) {
     // Rotate to face direction
     const targetRotation = Math.atan2(directionToTarget.x, directionToTarget.z);
     drone.rotation.y = targetRotation;
-    
-    // Update camera/speaker color based on hack status
-    if (drone.userData.isHacked) {
-      drone.children[3].material.color.set(drone.userData.hackedColor);
-      drone.children[3].material.emissive.set(drone.userData.hackedColor);
-    }
   });
 }
 
@@ -535,65 +560,172 @@ function updatePriests(delta) {
   });
 }
 
-function checkForTargetableDrones() {
-  // Reset previous target
-  if (gameState.targetedDrone) {
-    gameState.targetedDrone = null;
-    elements.targetIndicator.classList.add('hidden');
-  }
+function shootPietyBolt() {
+  if (gameState.faith < 10) return; // Not enough faith
   
-  // Cast ray from camera
-  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  // Deduct faith
+  gameState.faith -= 10;
+  updateFaithMeter();
+  startFaithCooldown();
   
-  // Check intersections with drones
-  const intersects = raycaster.intersectObjects(gameState.drones, true);
+  // Play sound
+  sounds.boltShot.play();
   
-  if (intersects.length > 0) {
-    // Find the drone group that contains the intersected object
-    let droneObject = intersects[0].object;
-    while (droneObject.parent && !gameState.drones.includes(droneObject)) {
-      droneObject = droneObject.parent;
-    }
+  // Create projectile in 3D space
+  const direction = new THREE.Vector3(0, 0, -1);
+  direction.applyQuaternion(camera.quaternion);
+  
+  const bolt = {
+    position: new THREE.Vector3().copy(camera.position),
+    direction: direction,
+    speed: 0.5,
+    lifeTime: 0,
+    maxLife: 3 // seconds
+  };
+  
+  // Add an offset below the camera for bolt origin
+  bolt.position.y -= 0.2;
+  
+  gameState.projectiles.push(bolt);
+  
+  // Create visual element
+  const boltElem = document.createElement('div');
+  boltElem.classList.add('projectile');
+  boltElem.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 20 20">
+      <polygon points="10,0 20,10 10,20 0,10" fill="#ffcc00" />
+      <circle cx="10" cy="10" r="5" fill="#ffffff" />
+    </svg>
+  `;
+  document.getElementById('game-area').appendChild(boltElem);
+  
+  bolt.element = boltElem;
+}
+
+function updateProjectiles(delta) {
+  for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
+    const bolt = gameState.projectiles[i];
     
-    // If we found a drone and it's not already hacked
-    if (gameState.drones.includes(droneObject) && !droneObject.userData.isHacked) {
-      gameState.targetedDrone = droneObject;
-      elements.targetIndicator.classList.remove('hidden');
+    // Update position
+    bolt.position.add(bolt.direction.clone().multiplyScalar(bolt.speed));
+    
+    // Update 2D position
+    const vector = bolt.position.clone();
+    vector.project(camera);
+    
+    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+    
+    bolt.element.style.left = `${x}px`;
+    bolt.element.style.top = `${y}px`;
+    
+    // Check for collisions with drones
+    gameState.drones.forEach(drone => {
+      if (!drone.userData.isDestroyed && bolt.position.distanceTo(drone.position) < 0.8) {
+        destroyDrone(drone, bolt.position);
+        removeBolt(i);
+        return;
+      }
+    });
+    
+    // Update lifetime
+    bolt.lifeTime += delta;
+    if (bolt.lifeTime > bolt.maxLife) {
+      removeBolt(i);
     }
   }
 }
 
-function hackDrone(drone) {
-  // Only hack if not already hacked
-  if (!drone.userData.isHacked) {
-    // Play hack sound
-    sounds.hack.play();
+function removeBolt(index) {
+  const bolt = gameState.projectiles[index];
+  if (bolt.element && bolt.element.parentNode) {
+    bolt.element.parentNode.removeChild(bolt.element);
+  }
+  gameState.projectiles.splice(index, 1);
+}
+
+function destroyDrone(drone, position) {
+  // Only destroy if not already destroyed
+  if (!drone.userData.isDestroyed) {
+    // Play explosion sound
+    sounds.explosion.play();
     
     // Update drone status
-    drone.userData.isHacked = true;
+    drone.userData.isDestroyed = true;
     
-    // Show hack success message
+    // Make drone fall
+    drone.userData.isFalling = true;
+    drone.userData.fallVelocity = 0;
+    
+    // Create explosion effect
+    createExplosion(position);
+    
+    // Show destruction message
+    elements.hackSuccess.textContent = "DRONE DESTROYED!";
     elements.hackSuccess.classList.remove('hidden');
+    elements.hackSuccess.classList.add('drone-destroyed');
     setTimeout(() => {
       elements.hackSuccess.classList.add('hidden');
+      elements.hackSuccess.classList.remove('drone-destroyed');
     }, 1000);
     
     // Update stats
-    gameState.dronesHacked++;
+    gameState.dronesDestroyed++;
     gameState.scripturesBroadcast++;
     
     // Update UI
-    elements.dronesHacked.textContent = gameState.dronesHacked;
+    elements.dronesHacked.textContent = gameState.dronesDestroyed;
     elements.scripturesCount.textContent = gameState.scripturesBroadcast;
     
     // Create a floating scripture text
     createScriptureText(drone.position);
     
     // Check win condition
-    if (gameState.dronesHacked >= gameState.drones.length) {
+    if (gameState.dronesDestroyed >= gameState.drones.length) {
       endGame(true);
     }
   }
+}
+
+function createExplosion(position) {
+  // Create 3D explosion effect
+  const explosionLight = new THREE.PointLight(0xffcc00, 5, 10);
+  explosionLight.position.copy(position);
+  scene.add(explosionLight);
+  
+  // Remove light after animation
+  setTimeout(() => {
+    scene.remove(explosionLight);
+  }, 500);
+  
+  // Create 2D explosion element
+  const explosionElem = document.createElement('div');
+  explosionElem.classList.add('explosion');
+  explosionElem.innerHTML = `
+    <svg width="100" height="100" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="50" fill="#ffcc00" />
+      <circle cx="50" cy="50" r="40" fill="#ff9900" />
+      <circle cx="50" cy="50" r="25" fill="#ffffff" />
+    </svg>
+  `;
+  document.getElementById('game-area').appendChild(explosionElem);
+  
+  // Position the explosion
+  const vector = position.clone();
+  vector.project(camera);
+  
+  const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+  const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+  
+  explosionElem.style.left = `${x - 50}px`;
+  explosionElem.style.top = `${y - 50}px`;
+  
+  // Remove element after animation
+  setTimeout(() => {
+    if (explosionElem.parentNode) {
+      explosionElem.parentNode.removeChild(explosionElem);
+    }
+  }, 500);
 }
 
 function createScriptureText(position) {
@@ -647,6 +779,24 @@ function updatePlayerMovement(delta) {
   velocity.x -= velocity.x * 10.0 * delta;
   velocity.z -= velocity.z * 10.0 * delta;
   
+  // Apply gravity unless jetpack is active
+  if (jetpackActive && gameState.faith > 0) {
+    velocity.y += 0.15;
+    gameState.faith -= 0.5;
+    updateFaithMeter();
+    
+    if (gameState.faith <= 0) {
+      jetpackActive = false;
+      sounds.jetpack.stop();
+      startFaithCooldown();
+    }
+  } else {
+    velocity.y -= gravity;
+  }
+  
+  // Limit vertical velocity
+  velocity.y = Math.max(Math.min(velocity.y, 0.5), -0.5);
+  
   direction.z = Number(moveForward) - Number(moveBackward);
   direction.x = Number(moveRight) - Number(moveLeft);
   direction.normalize();
@@ -659,8 +809,61 @@ function updatePlayerMovement(delta) {
   controls.moveRight(-velocity.x * delta);
   controls.moveForward(-velocity.z * delta);
   
+  // Apply vertical movement
+  camera.position.y += velocity.y;
+  
+  // Ground check - prevent falling below ground level
+  if (camera.position.y < 1.6) {
+    camera.position.y = 1.6;
+    velocity.y = 0;
+  }
+  
   // Update player position
   gameState.playerPosition.copy(camera.position);
+}
+
+function updateFaithMeter() {
+  // Update UI
+  elements.faithFill.style.width = `${Math.max(0, (gameState.faith / gameState.maxFaith) * 100)}%`;
+}
+
+function startFaithCooldown() {
+  gameState.faithRecharging = false;
+  gameState.faithRechargeTimer = 0;
+  elements.faithFill.classList.add('cooldown');
+}
+
+function updateFaithRecharge(delta) {
+  if (!gameState.faithRecharging) {
+    gameState.faithRechargeTimer += delta;
+    
+    if (gameState.faithRechargeTimer >= 2) {
+      gameState.faithRecharging = true;
+      elements.faithFill.classList.remove('cooldown');
+    }
+  } else if (gameState.faith < gameState.maxFaith) {
+    gameState.faith = Math.min(gameState.maxFaith, gameState.faith + delta * 30);
+    updateFaithMeter();
+  }
+}
+
+function updateFallingDrones(delta) {
+  gameState.drones.forEach(drone => {
+    if (drone.userData.isFalling) {
+      drone.userData.fallVelocity += gravity * delta * 30;
+      drone.position.y -= drone.userData.fallVelocity;
+      
+      // Spin the falling drone
+      drone.rotation.x += 0.05;
+      drone.rotation.z += 0.03;
+      
+      // Remove drone once it hits the ground
+      if (drone.position.y < 0.5) {
+        drone.position.y = 0.5;
+        drone.userData.isFalling = false;
+      }
+    }
+  });
 }
 
 function updateDetectionMeter() {
@@ -680,22 +883,31 @@ function updateDetectionMeter() {
 function toggleMenu() {
   if (controls.isLocked) {
     controls.unlock();
+    gameState.isPaused = true;
+    clock.stop();
   } else {
     controls.lock();
+    gameState.isPaused = false;
+    clock.start();
   }
 }
 
 function startGame() {
   // Reset game state
   gameState.isPlaying = true;
-  gameState.dronesHacked = 0;
+  gameState.isPaused = false;
+  gameState.dronesDestroyed = 0;
   gameState.scripturesBroadcast = 0;
   gameState.detectionLevel = 0;
+  gameState.faith = gameState.maxFaith;
+  gameState.faithRecharging = true;
+  gameState.projectiles = [];
   
   // Reset UI
   elements.dronesHacked.textContent = '0';
   elements.scripturesCount.textContent = '0';
   elements.detectionFill.style.width = '0%';
+  updateFaithMeter();
   
   // Hide menu
   elements.menu.classList.add('hidden');
@@ -707,26 +919,31 @@ function startGame() {
   sounds.ambience.play();
   sounds.droneHum.play();
   
+  // Reset clock
+  clock.start();
+  
   // Start animation loop
   animate();
 }
 
 function endGame(isVictory) {
   gameState.isPlaying = false;
+  gameState.isPaused = true;
   controls.unlock();
   
   // Update game over screen
   elements.gameOverTitle.textContent = isVictory ? 'MISSION COMPLETE' : 'MISSION FAILED';
   elements.gameOverMessage.textContent = isVictory 
-    ? 'You successfully hacked all drones and spread the forbidden scriptures!'
+    ? 'You successfully destroyed all drones and spread the forbidden scriptures!'
     : 'You have been detected by the AI priests and excommunicated from SALVATION™.';
   
-  elements.finalDrones.textContent = gameState.dronesHacked;
+  elements.finalDrones.textContent = gameState.dronesDestroyed;
   elements.finalScriptures.textContent = gameState.scripturesBroadcast;
   
   // Stop sounds
   sounds.ambience.stop();
   sounds.droneHum.stop();
+  sounds.jetpack.stop();
   
   // Show game over screen
   elements.gameOver.classList.remove('hidden');
@@ -737,19 +954,27 @@ function animate() {
   
   requestAnimationFrame(animate);
   
+  if (gameState.isPaused) return;
+  
   const delta = clock.getDelta();
   
   // Update player movement
   updatePlayerMovement(delta);
   
+  // Update faith recharge
+  updateFaithRecharge(delta);
+  
   // Update drones
   updateDrones(delta);
+  
+  // Update falling drones
+  updateFallingDrones(delta);
   
   // Update priests
   updatePriests(delta);
   
-  // Check for targetable drones
-  checkForTargetableDrones();
+  // Update projectiles
+  updateProjectiles(delta);
   
   // Render scene
   renderer.render(scene, camera);
@@ -763,18 +988,32 @@ elements.startButton.addEventListener('click', () => {
 
 elements.shopButton.addEventListener('click', () => {
   elements.shopModal.classList.remove('hidden');
+  gameState.isPaused = true;
 });
 
 elements.closeShop.addEventListener('click', () => {
   elements.shopModal.classList.add('hidden');
+  if (!elements.menu.classList.contains('hidden')) {
+    gameState.isPaused = true;
+  } else {
+    gameState.isPaused = false;
+    if (gameState.isPlaying) controls.lock();
+  }
 });
 
 elements.aboutButton.addEventListener('click', () => {
   elements.aboutModal.classList.remove('hidden');
+  gameState.isPaused = true;
 });
 
 elements.closeAbout.addEventListener('click', () => {
   elements.aboutModal.classList.add('hidden');
+  if (!elements.menu.classList.contains('hidden')) {
+    gameState.isPaused = true;
+  } else {
+    gameState.isPaused = false;
+    if (gameState.isPlaying) controls.lock();
+  }
 });
 
 elements.restartButton.addEventListener('click', () => {
@@ -784,4 +1023,3 @@ elements.restartButton.addEventListener('click', () => {
 
 // Initialize the menu
 elements.menu.classList.remove('hidden');
-
